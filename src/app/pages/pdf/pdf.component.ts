@@ -52,7 +52,7 @@ export class PdfComponent {
         const decoded = JSON.parse(params['options']);
 
         this.url = decoded.src;
-        this.base64 = decoded.handTool ?? false;
+        this.base64 = decoded.base64 ?? false;
 
         this.handTool = decoded.handTool ?? true;
         this.showToolbar = decoded.showToolbar ?? true;
