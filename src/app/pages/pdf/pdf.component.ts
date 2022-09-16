@@ -4,7 +4,8 @@ import {
   NgxExtendedPdfViewerService,
   pdfDefaultOptions,
 } from 'ngx-extended-pdf-viewer';
-import { optiocionesUrl } from 'src/helpers/urlParameters';
+import { GetBase64Service } from 'src/app/services/get-base64.service';
+import { codificadoUrl } from 'src/helpers/urlParameters';
 
 @Component({
   selector: 'app-pdf',
@@ -22,55 +23,74 @@ export class PdfComponent {
   showPagingButtons: boolean = true;
   showZoomButtons: boolean = true;
   showPresentationModeButton: boolean = true;
-  showOpenFileButton: boolean = true;
+  showOpenFileButton: boolean = false;
   showPrintButton: boolean = true;
   showDownloadButton: boolean = true;
   showBookmarkButton: boolean = true;
   showSecondaryToolbarButton: boolean = true;
   showRotateButton: boolean = true;
-  showHandToolButton: boolean = true;
+  showHandToolButton: boolean = false;
   showScrollingButton: boolean = true;
   showSpreadButton: boolean = true;
   showPropertiesButton: boolean = true;
-  useBrowserLocale: boolean = true;
+  useBrowserLocale: boolean = false;
 
   base64: boolean = false;
-  base64Src: string = 'false';
+  base64Src: string = '';
 
-  constructor(private route: ActivatedRoute) {
-    pdfDefaultOptions.doubleTapZoomFactor = '150%'; // The default value is '200%'
+  constructor(
+    private route: ActivatedRoute,
+    private service: GetBase64Service // private httpClient: HttpClient
+  ) {
+    pdfDefaultOptions.doubleTapZoomFactor = '100%'; // The default value is '200%'
     pdfDefaultOptions.maxCanvasPixels = 4096 * 4096 * 5; // The default value is 4096 * 4096 pixels,
   }
   ngOnInit(): void {
+    // codificadoUrl;
     this.route.queryParams.subscribe((params) => {
       if (params['options']) {
-        const decodificado = JSON.parse(params['options']);
+        const decoded = JSON.parse(params['options']);
 
-        this.url = decodificado.src;
-        this.handTool = decodificado.otraCosa ?? true;
-        this.showToolbar = decodificado.showToolbar ?? true;
-        this.showFindButton = decodificado.showFindButton ?? true;
-        this.showZoomButtons = decodificado.showZoomButtons ?? true;
-        this.showPrintButton = decodificado.showPrintButton ?? true;
-        this.showRotateButton = decodificado.showRotateButton ?? true;
-        this.showSpreadButton = decodificado.showSpreadButton ?? true;
-        this.useBrowserLocale = decodificado.useBrowserLocale ?? true;
-        this.showSidebarButton = decodificado.showSidebarButton ?? true;
-        this.showPagingButtons = decodificado.showPagingButtons ?? true;
-        this.showOpenFileButton = decodificado.showOpenFileButton ?? true;
-        this.showDownloadButton = decodificado.showDownloadButton ?? true;
-        this.showBookmarkButton = decodificado.showBookmarkButton ?? true;
-        this.showHandToolButton = decodificado.showHandToolButton ?? true;
-        this.showScrollingButton = decodificado.showScrollingButton ?? true;
-        this.showPropertiesButton = decodificado.showPropertiesButton ?? true;
+        this.url = decoded.src;
+        this.base64 = true;
+
+        this.handTool = decoded.handTool ?? true;
+        this.showToolbar = decoded.showToolbar ?? true;
+        this.showFindButton = decoded.showFindButton ?? true;
+        this.showZoomButtons = decoded.showZoomButtons ?? true;
+        this.showPrintButton = decoded.showPrintButton ?? true;
+        this.showRotateButton = decoded.showRotateButton ?? true;
+        this.showSpreadButton = decoded.showSpreadButton ?? true;
+        this.useBrowserLocale = decoded.useBrowserLocale ?? false;
+        this.showSidebarButton = decoded.showSidebarButton ?? true;
+        this.showPagingButtons = decoded.showPagingButtons ?? true;
+        this.showOpenFileButton = decoded.showOpenFileButton ?? false;
+        this.showDownloadButton = decoded.showDownloadButton ?? true;
+        this.showBookmarkButton = decoded.showBookmarkButton ?? true;
+        this.showHandToolButton = decoded.showHandToolButton ?? false;
+        this.showScrollingButton = decoded.showScrollingButton ?? true;
+        this.showPropertiesButton = decoded.showPropertiesButton ?? true;
 
         this.showPresentationModeButton =
-          decodificado.showPresentationModeButton;
+          decoded.showPresentationModeButton ?? true;
         this.showSecondaryToolbarButton =
-          decodificado.showSecondaryToolbarButton;
+          decoded.showSecondaryToolbarButton ?? false;
+
+        if (this.base64) {
+          this.service.makeHttpRequest(decoded).subscribe((res) => {
+            const dataResponse = decoded.dataResponse;
+            this.base64Src = dataResponse
+              ? this.service.getDataPath(res, dataResponse)
+              : res;
+            if (!this.base64Src) {
+              this.service
+                .getDefaultBase64()
+                .subscribe((data: any) => (this.base64Src = data));
+            }
+          });
+        }
       } else {
-        this.url =
-          '/assets/pdfs/Bootstrap-vs-Material-Design-vs-Prime-vs-Tailwind.pdf';
+        this.url = '/assets/pdfs/Mp-pdf-viewer-docs.pdf';
       }
       if (params['url']) this.url = params['url'];
     });
