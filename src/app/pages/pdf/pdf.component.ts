@@ -1,10 +1,15 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { Spinkit, SpinnerVisibilityService } from 'ng-http-loader';
 import {
-  NgxExtendedPdfViewerService,
+  PagesLoadedEvent,
   pdfDefaultOptions,
+  PdfLoadedEvent,
+  PdfLoadingStartsEvent,
+  ProgressBarEvent,
 } from 'ngx-extended-pdf-viewer';
-import { GetBase64Service } from 'src/app/services/get-base64.service';
+import { Observable, shareReplay, Subject, tap } from 'rxjs';
 import { codificadoUrl } from 'src/helpers/urlParameters';
 
 @Component({
@@ -14,6 +19,11 @@ import { codificadoUrl } from 'src/helpers/urlParameters';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PdfComponent {
+  public showViewer = true;
+
+  public spinkit = Spinkit;
+  public contador: number = 0;
+
   url: string = '';
 
   showToolbar: boolean = true;
@@ -36,16 +46,50 @@ export class PdfComponent {
   useBrowserLocale: boolean = false;
 
   base64: boolean = false;
-  base64Src: string = '';
+  showView: boolean = false;
+  base64Src: string | null | undefined = null;
+
+  public base64Subject = new Subject<string>();
+  public $base64 = Observable<String>;
+
+  private _language = 'es-ES';
 
   constructor(
     private route: ActivatedRoute,
-    private service: GetBase64Service // private httpClient: HttpClient
+    private httpClient: HttpClient,
+    private spinner: SpinnerVisibilityService
   ) {
     pdfDefaultOptions.doubleTapZoomFactor = '100%'; // The default value is '200%'
     pdfDefaultOptions.maxCanvasPixels = 4096 * 4096 * 5; // The default value is 4096 * 4096 pixels,
   }
-  ngOnInit(): void {
+
+  pdfLoadingStarts($event: PdfLoadingStartsEvent) {
+    this.spinner.show();
+  }
+
+  onProgress($event: ProgressBarEvent) {
+    this.contador = Number(parseInt(`${$event.percent}`));
+  }
+
+  pdfLoaded($event: PdfLoadedEvent) {
+    this.spinner.hide();
+  }
+
+  onPagesLoaded($event: PagesLoadedEvent) {
+    // console.log('onPagesLoaded');
+  }
+
+  public pdfLoadingFailed($event: Error) {
+    this.spinner.hide();
+    // this.base64Src = null;
+    // this.url = '/assets/pdfs/Mp-pdf-viewer-docs.pdf';
+  }
+
+  onEvent(eventName: string, $event: any) {
+    // console.log(eventName, $event);
+  }
+
+  public ngOnInit(): void {
     // codificadoUrl;
     this.route.queryParams.subscribe((params) => {
       if (params['options']) {
@@ -77,22 +121,92 @@ export class PdfComponent {
           decoded.showSecondaryToolbarButton ?? false;
 
         if (this.base64) {
-          this.service.makeHttpRequest(decoded).subscribe((res) => {
-            const dataResponse = decoded.dataResponse;
-            this.base64Src = dataResponse
-              ? this.service.getDataPath(res, dataResponse)
-              : res;
-            if (!this.base64Src) {
-              this.service
-                .getDefaultBase64()
-                .subscribe((data: any) => (this.base64Src = data));
-            }
-          });
+          this.makeHttpRequest(decoded);
         }
       } else {
         this.url = '/assets/pdfs/Mp-pdf-viewer-docs.pdf';
       }
-      if (params['url']) this.url = params['url'];
+      if (params['url']) {
+        this.base64Src = null;
+        this.url = params['url'];
+      }
     });
   }
+  /**
+   * method by called http request
+   * @param decoded url options
+   * @returns
+   */
+  makeHttpRequest(decoded: any) {
+    const body = decoded.data;
+    const method = decoded.method;
+    const headers = decoded.headers;
+    const requestURL = decoded.requestURL;
+
+    try {
+    } catch (error) {}
+    if (method === 'GET' || method === 'get') {
+      this.httpClient
+        .get(requestURL, { headers })
+        .pipe(tap((resp: any) => this.renderBase64(resp, decoded.dataResponse)))
+        .subscribe();
+    }
+    if (method === 'POST' || method === 'post') {
+      this.httpClient
+        .post(requestURL, body, { headers })
+        .pipe(tap((resp: any) => this.renderBase64(resp, decoded.dataResponse)))
+        .subscribe();
+    }
+    // return this.httpClient.get(requestURL, { headers }).pipe(shareReplay());
+  }
+
+  /**
+   * method by set base64 value
+   * @param resp data response from http resquest
+   * @param path route when have base64 the response
+   */
+  renderBase64(resp: any, path: string | null = null): void {
+    this.base64Src = path ? this.getDataPath(resp, path) : resp;
+    if (!this.base64Src) {
+      this.getDefaultBase64();
+    }
+  }
+
+  /**
+   * get string base64 from object response
+   * @param obj response object from http resquest
+   * @param path route when have base64 the response
+   * @returns
+   */
+  getDataPath(obj: any, path: string): any {
+    const arrFields = path.split('.');
+    const resp = arrFields.reduce((val, field) => val[field], obj);
+    return resp;
+  }
+
+  /**
+   * if error on request http, thene load defaultbase64
+   * @returns
+   */
+  getDefaultBase64() {
+    this.httpClient
+      .get('/assets/pdfs/pdf-docs.base64.txt', {
+        responseType: 'text' as 'json',
+      })
+      .pipe(shareReplay())
+      .subscribe((data: any) => (this.base64Src = data));
+  }
+
+  public get language(): string {
+    return this._language;
+  }
+  // public set language(language: string) {
+  //   this._language = language;
+  //   this.hidePdfViewer = true;
+  //   // the timeout gives the PDF viewer time
+  //   // to free memory
+  //   setTimeout(() => {
+  //     this.hidePdfViewer = false;
+  //   }, 1000);
+  // }
 }
