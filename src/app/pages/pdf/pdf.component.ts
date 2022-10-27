@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Spinkit, SpinnerVisibilityService } from 'ng-http-loader';
 import {
@@ -10,6 +10,8 @@ import {
   ProgressBarEvent,
 } from 'ngx-extended-pdf-viewer';
 import { Observable, shareReplay, Subject, tap } from 'rxjs';
+import { DataSharedService } from 'src/app/services/data-shared.service';
+import { CLoaderComponent } from '../c-loader/c-loader.component';
 import { codificadoUrl } from 'src/helpers/urlParameters';
 
 @Component({
@@ -18,9 +20,9 @@ import { codificadoUrl } from 'src/helpers/urlParameters';
   styleUrls: ['./pdf.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PdfComponent {
+export class PdfComponent implements OnInit {
   public showViewer = true;
-
+  public awesomeComponent = CLoaderComponent;
   public spinkit = Spinkit;
   public contador: number = 0;
 
@@ -57,7 +59,8 @@ export class PdfComponent {
   constructor(
     private route: ActivatedRoute,
     private httpClient: HttpClient,
-    private spinner: SpinnerVisibilityService
+    private spinner: SpinnerVisibilityService,
+    private dataService: DataSharedService
   ) {
     pdfDefaultOptions.doubleTapZoomFactor = '100%'; // The default value is '200%'
     pdfDefaultOptions.maxCanvasPixels = 4096 * 4096 * 5; // The default value is 4096 * 4096 pixels,
@@ -68,16 +71,15 @@ export class PdfComponent {
   }
 
   onProgress($event: ProgressBarEvent) {
-    this.contador = Number(parseInt(`${$event.percent}`));
+    const value = Number(parseInt(`${$event.percent}`));
+    this.dataService.changeCounter(value);
   }
 
   pdfLoaded($event: PdfLoadedEvent) {
     this.spinner.hide();
   }
 
-  onPagesLoaded($event: PagesLoadedEvent) {
-    // console.log('onPagesLoaded');
-  }
+  onPagesLoaded($event: PagesLoadedEvent) {}
 
   public pdfLoadingFailed($event: Error) {
     this.spinner.hide();
@@ -86,11 +88,11 @@ export class PdfComponent {
   }
 
   onEvent(eventName: string, $event: any) {
-    // console.log(eventName, $event);
   }
 
   public ngOnInit(): void {
     // codificadoUrl;
+    this.dataService.counter.subscribe((counter) => (this.contador = counter));
     this.route.queryParams.subscribe((params) => {
       if (params['options']) {
         const decoded = JSON.parse(params['options']);
