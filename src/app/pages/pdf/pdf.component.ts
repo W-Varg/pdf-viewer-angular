@@ -1,5 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, ChangeDetectionStrategy, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  OnInit,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Spinkit, SpinnerVisibilityService } from 'ng-http-loader';
 import {
@@ -12,6 +17,8 @@ import {
 import { Observable, shareReplay, Subject, tap } from 'rxjs';
 import { DataSharedService } from 'src/app/services/data-shared.service';
 import { CLoaderComponent } from '../c-loader/c-loader.component';
+import { NzModalService } from 'ng-zorro-antd/modal';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { codificadoUrl } from 'src/helpers/urlParameters';
 
 @Component({
@@ -54,12 +61,13 @@ export class PdfComponent implements OnInit {
   public base64Subject = new Subject<string>();
   public $base64 = Observable<String>;
 
-  private _language = 'es-ES';
-
   constructor(
     private route: ActivatedRoute,
     private httpClient: HttpClient,
     private spinner: SpinnerVisibilityService,
+    private nzMessageService: NzMessageService,
+    private modal: NzModalService,
+    private ref: ChangeDetectorRef,
     private dataService: DataSharedService
   ) {
     pdfDefaultOptions.doubleTapZoomFactor = '100%'; // The default value is '200%'
@@ -83,12 +91,21 @@ export class PdfComponent implements OnInit {
 
   public pdfLoadingFailed($event: Error) {
     this.spinner.hide();
-    // this.base64Src = null;
+    this.nzMessageService.info('ERROR', { nzDuration: 0.1 });
+
+    this.modal.error({
+      nzClosable: false,
+      nzTitle: 'Ocurrio un error',
+      nzContent: `No fue posible cargar el documento PDF, consulte con el Administrador.`,
+      nzOkText: null,
+    });
+
     // this.url = '/assets/pdfs/Mp-pdf-viewer-docs.pdf';
+    // // this.base64Src = null;
+    this.ref.detectChanges();
   }
 
-  onEvent(eventName: string, $event: any) {
-  }
+  onEvent(eventName: string, $event: any) {}
 
   public ngOnInit(): void {
     // codificadoUrl;
@@ -159,7 +176,6 @@ export class PdfComponent implements OnInit {
         .pipe(tap((resp: any) => this.renderBase64(resp, decoded.dataResponse)))
         .subscribe();
     }
-    // return this.httpClient.get(requestURL, { headers }).pipe(shareReplay());
   }
 
   /**
@@ -198,17 +214,4 @@ export class PdfComponent implements OnInit {
       .pipe(shareReplay())
       .subscribe((data: any) => (this.base64Src = data));
   }
-
-  public get language(): string {
-    return this._language;
-  }
-  // public set language(language: string) {
-  //   this._language = language;
-  //   this.hidePdfViewer = true;
-  //   // the timeout gives the PDF viewer time
-  //   // to free memory
-  //   setTimeout(() => {
-  //     this.hidePdfViewer = false;
-  //   }, 1000);
-  // }
 }
